@@ -1,4 +1,5 @@
 from email.policy import default
+from itertools import count
 from math import e
 from src.models.model import PredictionModel
 from src.models.smoothing import laplace_smoothing
@@ -71,11 +72,13 @@ class BigramModel(PredictionModel):
             if last_id is not None and element['sent_id'] == last_id:
                 next_words = self.bigram_suavizado[last_word]
                 predicted_word = max(next_words, key=next_words.get)
-                results.get(element['sent_id'], [])
+                # results.get(element['sent_id'], [])
                 results[element['sent_id']].append(predicted_word)
             else:
-                results.get(element['sent_id'], [])
-                results[element['sent_id']].append(element['form'])
+                # results.get(element['sent_id'], [])
+                next_words = self.bigram_suavizado["<s>"]
+                predicted_word = max(next_words, key=next_words.get)
+                results[element['sent_id']].append(predicted_word)
             last_word = element['form']
             last_id = element['sent_id']
         
@@ -85,21 +88,29 @@ class BigramModel(PredictionModel):
 
 
     def evaluate(self, test_data: DataFrame):
-        # Implementar predição e calcular acurácia, precisão, cobertura e, medida F dada por 2* (precisão * cobertura) / (precisão + cobertura)
         predictions = self.predict(test_data)
         expected_predictions = defaultdict(list)
+        metrics=defaultdict(list)
         for _, element in test_data.iterrows():
             expected_predictions[element['sent_id']].append(element['form'])
-        # Calcular métricas aqui
-        for predicted, expected in zip(predictions.values(), expected_predictions.values()):
-            acuracy = sum(p == e for p, e in zip(predicted, expected)) / len(expected)
+
         
-        for predicted in predictions.values():
+        count_gold = defaultdict(int)
+        for predicted, expected in zip(predictions.values(), expected_predictions.values()):
+            for p, e in zip(predicted, expected):
+                if p == e:
+                    count_gold[e] += 1
+
+            accuracy = sum(p == e for p, e in zip(predicted, expected)) / len(expected)
+            metrics["acuracy"].append(accuracy)
             precision = sum(p in expected for p in predicted) / len(predicted)
-        for expected in expected_predictions.values():
+            metrics["precision"].append(precision)
             recall = sum(e in predicted for e in expected) / len(expected)
-        f1_score = 2 * (precision * recall) / (precision + recall)
-        return acuracy, precision, recall, f1_score
+            metrics["recall"].append(recall)
+            f1_score = 2 * (precision * recall / (precision + recall))
+            metrics["f1_score"].append(f1_score)
+
+        return metrics, count_gold
 
     def save(self, filepath):
         # Implement save logic for bigram model
