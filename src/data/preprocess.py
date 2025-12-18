@@ -1,3 +1,4 @@
+from turtle import up
 import pandas as pd
 
 ## Parte 1
@@ -12,9 +13,9 @@ def multiword_filter(df):
 
 def select_2_columns(df):
     """Select only the two relevant columns from the dataframe."""
-    return df[['sent_id','form']]
+    return df[['sent_id','text','form','upos']]
 
-def insert_start_end_tokens(df):
+def insert_start_end_tokens(df, no_id=False):
     """Insert <s> and </s> tokens at the beginning and end of each sentence."""
     new_rows = []
     df['text'] = "<s> " + df['text'] + " </s>"
@@ -22,9 +23,14 @@ def insert_start_end_tokens(df):
     for sent_id, group in df.groupby('sent_id'):
         text = group['text'].iloc[0]
         len = group.shape[0]
-        new_rows.append({'sent_id': sent_id,'text': text , 'id': 0,'form': '<s>'})
-        new_rows.extend(group.to_dict('records'))
-        new_rows.append({'sent_id': sent_id,'text': text , 'id': len + 1, 'form': '</s>'})
+        if no_id:
+            new_rows.append({'sent_id': sent_id,'text': text , 'form': '<s>', 'upos': 'START'})
+            new_rows.extend(group.to_dict('records'))
+            new_rows.append({'sent_id': sent_id,'text': text , 'form': '</s>', 'upos': 'ENDD'})
+        else:
+            new_rows.append({'sent_id': sent_id,'text': text , 'id': 0,'form': '<s>'})
+            new_rows.extend(group.to_dict('records'))
+            new_rows.append({'sent_id': sent_id,'text': text , 'id': len + 1, 'form': '</s>'})
     return pd.DataFrame(new_rows)
 
 def lower_case(df):
@@ -36,6 +42,7 @@ def lower_case(df):
 def substitute_unk(df, vocab):
     """Substitute words not in the vocabulary with <unk> token."""
     df['form'] = df['form'].apply(lambda x: x if x in vocab else '<unk>')
+    
     return df
 
 ## Parte 2
